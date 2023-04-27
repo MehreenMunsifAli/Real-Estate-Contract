@@ -1,0 +1,571 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity ^0.8.18;
+
+contract Land {
+  address landInspectorAddress;
+
+  struct landDetail {
+    uint256 landID;
+    string landArea;
+    string landCity;
+    string landState;
+    uint256 landPrice;
+    uint256 propertyID;
+    bool landVerified;
+    address landOwner;
+    string landOwnerName;
+    bool isLandSold;
+  }
+
+  struct buyerDetail {
+    string buyerName;
+    uint256 buyerAge;
+    string buyerCity;
+    uint256 buyerCnic;
+    string buyerEmail;
+    bool buyerVerified;
+    address buyerAdd;
+  }
+
+  struct sellerDetail {
+    string sellerName;
+    uint256 sellerAge;
+    string sellerCity;
+    uint256 sellerCnic;
+    string sellerEmail;
+    bool sellerVerified;
+    address sellerAddress;
+  }
+
+  struct landInspector {
+    address inspectorId;
+    string inspectorName;
+    uint256 inspectorAge;
+    string inspectorDesignation;
+  }
+
+  constructor(
+    string memory insName,
+    uint256 insAge,
+    string memory insDesignation
+  ) {
+    // using insId because we used address as key in mapping
+    landInspectorAddress = msg.sender;
+    InspectorMapping[landInspectorAddress].inspectorId = msg.sender;
+    InspectorMapping[landInspectorAddress].inspectorName = insName;
+    InspectorMapping[landInspectorAddress].inspectorAge = insAge;
+    InspectorMapping[landInspectorAddress].inspectorDesignation = insDesignation;
+  }
+
+  mapping(address => landInspector) public InspectorMapping;
+
+  mapping(address => sellerDetail) public SellerMapping;
+
+  mapping(address => buyerDetail) public BuyerMapping;
+
+  mapping(uint256 => landDetail) public landMapping;
+
+  event Registered(string message, uint256 time);
+
+  event SellerVerification(string message, address verifiedBy, uint256 time);
+
+  event BuyerVerification(string message, address verifiedBy, uint256 time);
+
+  event LandVerification(string message, address verifiedBy, uint256 time);
+
+  event SellerInfoUpdated(string message, address updatedBy, uint256 time);
+
+  event BuyerInfoUpdated(string message, address updatedBy, uint256 time);
+
+  event LandPurchased(string message, address purchasedBy, uint256 time);
+
+  event TransferOwnership(string message, address transferredBy, uint256 time);
+
+  modifier onlyLandInspector() {
+    require(
+      msg.sender == landInspectorAddress,
+      "Only Land Inspector can Access This"
+    );
+    _;
+  }
+
+ /*
+ * @dev  registerSeller is used to register a seller
+ * Requirement:
+ * - This function can be called by anyone
+ * - It should be a new seller
+ * - Buyer cannot be seller
+ * @param sellerAddr - Address of the seller
+ * @param _name - Seller name
+ * @param _age - Seller age
+ * @param _city - Seller city
+ * @param _cnic - Seller cnic
+ * @param _email - Seller email
+ *
+ *Emits a (Registered) event.
+ */ 
+
+  function registerSeller(
+    address sellerAddr,
+    string memory _name,
+    uint256 _age,
+    string memory _city,
+    uint256 _cnic,
+    string memory _email
+  ) public {
+    require(
+      SellerMapping[sellerAddr].sellerCnic == 0,
+      "This Seller is Already Registered"
+    );
+    require(
+      BuyerMapping[sellerAddr].buyerCnic == 0,
+      "A Buyer is Already Registered with the Same Address"
+    );
+    SellerMapping[sellerAddr] = sellerDetail(
+      _name,
+      _age,
+      _city,
+      _cnic,
+      _email,
+      false,
+      msg.sender
+    );
+    emit Registered(
+      "Seller is Now Registered and Waiting for Approval from land Inspector",
+      block.timestamp
+    );
+  }
+
+/*
+ * @dev  sellerIsVerified is used to verify the seller
+ * Requirement:
+ * - This function can be called by land inspector only and he can verify or reject the seller
+ * @param sellerId - Address of the seller
+
+ *
+ *Emits a (SellerVerification) event.
+ */ 
+
+  function sellerIsVerified(address sellerId) public onlyLandInspector {
+    SellerMapping[sellerId].sellerVerified = true;
+    emit SellerVerification(
+      "Seller is Now Verified",
+      InspectorMapping[msg.sender].inspectorId,
+      block.timestamp
+    );
+  }
+
+/*
+ * @dev  registerLand is used to register a land
+ * Requirement:
+ * - This function can be called by the verified seller
+ * - It should be a new land to be registered
+ * @param _landId - _landId
+ * @param _landArea - _landArea
+ * @param _landCity - _landCity
+ * @param _landState - _landState
+ * @param _landPrice - _landPrice
+ * @param _propertyID - _propertyID
+ *
+ *Emits a (Registered) event.
+ */   
+
+  function registerLand(
+    uint256 _landId,
+    string memory _landArea,
+    string memory _landCity,
+    string memory _landState,
+    uint256 _landPrice,
+    uint256 _propertyID
+    // string memory _landOwnerName
+    //  address _landOwner
+  ) public
+  {
+    require(
+      SellerMapping[msg.sender].sellerVerified == true,
+      "Seller is not Verified by the Land Inspector"
+    );
+    require(
+      landMapping[_landId].landID == 0, "This Land is alreay Registered"    
+      );
+    landMapping[_landId].landID = _landId;
+    landMapping[_landId].landArea = _landArea;
+    landMapping[_landId].landCity = _landCity;
+    landMapping[_landId].landState = _landState;
+    landMapping[_landId].landPrice = _landPrice;
+    landMapping[_landId].propertyID = _propertyID;
+    landMapping[_landId].landOwner = msg.sender;
+    landMapping[_landId].landOwnerName = SellerMapping[msg.sender].sellerName;
+    emit Registered(
+      "Land is Now Registered and Waiting for Approval from land Inspector",
+      block.timestamp
+    );
+  }
+
+ /*
+ * @dev  landIsVerified is used to verify the land
+ * Requirement:
+ * - This function can be called by land inspector only
+ * @param land_ID - land_ID
+
+ *
+ *Emits a (LandVerification) event.
+ */   
+
+  function landIsVerified(uint256 land_ID) public onlyLandInspector {
+    landMapping[land_ID].landVerified = true;
+    emit LandVerification(
+      "Land is Now Verified",
+      InspectorMapping[msg.sender].inspectorId,
+      block.timestamp
+    );
+  }
+
+ /*
+ * @dev  updateSellerInfo is used to update seller details
+ * Requirement:
+ * - seller should be registered
+ * - seller should be verified by the land inspector
+ * @param seller_Name - name of the seller that can be updated
+ * @param seller_Age - age of the seller
+ * @param seller_City - city of the seller
+ * @param seller_Cnic - cnic of the seller
+ * @param seller_Email - email of the seller
+ *
+ *Emits a (SellerInfoUpdated) event.
+ */    
+
+  function updateSellerInfo(
+    string memory seller_Name,
+    uint256 seller_Age,
+    string memory seller_City,
+    uint256 seller_Cnic,
+    string memory seller_Email
+    //    bool seller_Verified,
+    //    address seller_Address
+  ) public 
+  {
+    require(
+      SellerMapping[msg.sender].sellerCnic != 0,
+      "Seller is not Registered"
+    );
+    require(
+        SellerMapping[msg.sender].sellerVerified == true,
+        "Seller must be Verified to Update Details"
+    );
+    SellerMapping[msg.sender] = sellerDetail(
+      seller_Name,
+      seller_Age,
+      seller_City,
+      seller_Cnic,
+      seller_Email,
+      false,
+      msg.sender
+    );
+
+    emit SellerInfoUpdated(
+      "Seller Information Updated",
+      SellerMapping[msg.sender].sellerAddress,
+      block.timestamp
+    );
+  }
+
+ /*
+ * @dev isSeller is a get function to know the seller verification
+ * Requirement:
+ * - Anyone can call this function
+ * @param _isSeller - address of the seller
+ * @return bool - seller is verified or not
+ */
+
+  function isSeller(address _isSeller) public view returns (bool) {
+    return SellerMapping[_isSeller].sellerVerified;
+  }
+
+ /*
+ * @dev  getLandDetails is used to get land details
+ * Requirement:
+ * - land should be registered & verified
+ * @param land__id - land ID to get land details
+ * @return landID - landID
+ * @return landArea - Land area/location
+ * @return landCity - city
+ * @return landOwnerName - name of the land owner
+ * @return landPrice - price of the land set by the verified seller
+ * @return propertyID - property id
+ * @return landOwner - account address/public key of the land owner
+ */     
+
+  function getLandDetails(
+    uint256 land__id
+  )
+    public
+    view
+    returns (
+      uint256,
+      string memory,
+      string memory,
+      string memory,
+      uint256,
+      uint256,
+      address
+    )
+  {
+    require(landMapping[land__id].landVerified, "This Land is not Registered or Verified");
+    require(landMapping[land__id].landID != 0, "This Land does not Exist");
+    return (
+      landMapping[land__id].landID,
+      landMapping[land__id].landArea,
+      landMapping[land__id].landCity,
+      landMapping[land__id].landOwnerName,
+      landMapping[land__id].landPrice,
+      landMapping[land__id].propertyID,
+      landMapping[land__id].landOwner
+    );
+  }
+
+/*
+ * @dev  landsOwner is used to know the current owner of the land
+ * Requirement:
+ * - land should be registered & verified
+ * @param land_id - land ID to get current land owner
+ * @return landOwnerName - current owner name
+ * @return landOwner - address/public key of the current land owner
+ */    
+
+  function landsOwner(
+    uint256 land_id
+  ) public view returns (string memory, address) {
+    require(landMapping[land_id].landVerified, "This Land is not Registered");
+    require(landMapping[land_id].landID != 0, "This Land does not Exist");
+    return (landMapping[land_id].landOwnerName, landMapping[land_id].landOwner);
+  }
+
+  /*
+ * @dev  registerBuyer is used to register a buyer
+ * Requirement:
+ * - This function can be called by anyone
+ * - It should be a new buyer
+ * - Seller cannot be buyer
+ * @param buyerAddr - address of the buyer
+ * @param _buyerName - buyer name
+ * @param _buyerAge - buyer age
+ * @param _buyerCity - buyer city
+ * @param _buyerCnic - buyer cnic
+ * @param _buyerEmail - buyer email
+ *
+ *Emits a (Registered) event.
+ */ 
+
+  function registerBuyer(
+    address buyerAddr,
+    string memory _buyerName,
+    uint256 _buyerAge,
+    string memory _buyerCity,
+    uint256 _buyerCnic,
+    string memory _buyerEmail
+  ) public {
+    require(
+      BuyerMapping[buyerAddr].buyerCnic == 0,
+      "This Buyer is already Registered"
+    );
+    require(
+        SellerMapping[buyerAddr].sellerCnic == 0,
+        "A Seller is Already Registered with the Same Address"
+    );
+    BuyerMapping[buyerAddr].buyerName = _buyerName;
+    BuyerMapping[buyerAddr].buyerAge = _buyerAge;
+    BuyerMapping[buyerAddr].buyerCity = _buyerCity;
+    BuyerMapping[buyerAddr].buyerCnic = _buyerCnic;
+    BuyerMapping[buyerAddr].buyerEmail = _buyerEmail;
+    emit Registered(
+      "Buyer is Now Registered and Waiting for Approval from land Inspector",
+      block.timestamp
+    );
+  }
+
+/*
+ * @dev  buyerIsVerified is used to verify the buyer
+ * Requirement:
+ * - This function can be called by land inspector only and he can verify or reject the buyer
+ * @param buyerId - address of the buyer
+
+ *
+ *Emits a (BuyerVerification) event.
+ */ 
+
+  function buyerIsVerified(address buyerId) public onlyLandInspector {
+    BuyerMapping[buyerId].buyerVerified = true;
+    emit BuyerVerification(
+      "Buyer is Now Verified",
+      InspectorMapping[msg.sender].inspectorId,
+      block.timestamp
+    );
+  }
+
+  /*
+ * @dev isBuyer is a get function to know the buyer verification
+ * Requirement:
+ * - Anyone can call this function
+ * @param _isBuyer - address of the buyer
+ * @return bool - buyer is verified or not
+ */
+
+  function isBuyer(address _isBuyer) public view returns (bool) {
+    return BuyerMapping[_isBuyer].buyerVerified;
+  }
+
+  /*
+ * @dev  updateBuyerInfo is used to update buyer details
+ * Requirement:
+ * - buyer should be verified by the land inspector
+ * - buyer should be registered
+ * @param buyer_Name - name of the buyer that can be updated
+ * @param buyer_Age - age of the buyer
+ * @param buyer_City - city of the buyer
+ * @param buyer_Cnic - cnic of the buyer
+ * @param buyer_Email - email of the buyer
+ *
+ *Emits a (BuyerInfoUpdated) event.
+ */    
+
+  function updateBuyerInfo(
+    string memory buyer_Name,
+    uint256 buyer_Age,
+    string memory buyer_City,
+    uint256 buyer_Cnic,
+    string memory buyer_Email
+    //  address buyer_Address
+    //  bool buyer_Verified
+  ) public
+  {
+    require(
+      BuyerMapping[msg.sender].buyerVerified == true,
+      "Buyer must be Verified to Update Details"
+    );
+    require(
+      BuyerMapping[msg.sender].buyerCnic != 0,
+      "Buyer Not Registered"
+      );
+      BuyerMapping[msg.sender] = buyerDetail(
+      buyer_Name,
+      buyer_Age,
+      buyer_City,
+      buyer_Cnic,
+      buyer_Email,
+      false,
+      msg.sender
+    );
+    emit BuyerInfoUpdated(
+      "Buyer Info Updated",
+      BuyerMapping[msg.sender].buyerAdd,
+      block.timestamp
+    );
+  }
+
+/*
+* @dev  buyLand function is used to purchase the land
+* Requirement:
+* - Land should be verified
+* - Buyer should be verified
+* - Land should be available for sale
+* - amount should be equal to the land price
+* @param _id - land ID 
+* @param to - address of the seller
+*
+* Emits a (LandPurchased) event.
+*/
+
+  function buyLand(uint256 _id, address payable to) public payable {
+    require(landMapping[_id].landVerified, "Land is not verified");
+    require(BuyerMapping[msg.sender].buyerVerified, "Buyer is not verified");
+    require(landMapping[_id].isLandSold == false, "Land is already sold");
+    require(
+      msg.value == landMapping[_id].landPrice,
+      "Amount must be equal to Land Price"
+    );
+    landMapping[_id].landID = _id;
+    (bool transferred, bytes memory data) = to.call{
+      value: msg.value,
+      gas: 1500
+    }("");
+    data = data;
+    require(transferred, "Transaction Failed");
+    emit LandPurchased(
+      "Land Purchased Successfully and Waiting for Ownership Transfer",
+      msg.sender,
+      block.timestamp
+    );
+  }
+
+/*
+* @dev  ownershipTransfer function is used to transfer the land ownership
+* Requirement:
+* - Seller (who is the current owner) should be verified
+* - Buyer should be verified
+* - Land should not be already sold
+* - Only land owner can transfer the land ownership
+* @param landid - land ID 
+* @param buyerAddress - address of the buyer to whom ownership has to be transferred
+*
+* Emits a (TransferOwnership) event.
+*/
+
+  function ownershipTransfer(uint256 landid, address buyerAddress) public {
+    require(
+      SellerMapping[landMapping[landid].landOwner].sellerVerified == true,
+      "Seller not verified"
+    );
+    require(
+      BuyerMapping[buyerAddress].buyerVerified == true,
+      "Buyer not verified"
+    );
+    require(
+      landMapping[landid].isLandSold == false, 
+      "Land is alreay sold"
+      );
+    require(
+      landMapping[landid].landOwner == msg.sender,
+      "Only land owner is authorized to transfer the land"
+    );
+    landMapping[landid].isLandSold = true;
+//  landMapping[landid].landOwner = buyerAddress;
+    landMapping[landid].landOwner = BuyerMapping[buyerAddress].buyerAdd;
+    landMapping[landid].landOwnerName = BuyerMapping[buyerAddress].buyerName;
+
+    emit TransferOwnership(
+      "Land has successfully been transferred",
+      msg.sender,
+      block.timestamp
+    );
+  }
+
+  /*
+* @dev  transferToAnyone function is used to transfer the land to any address
+* Requirement:
+* - Land should be verified by the land inspector
+* - Only land owner can transfer the land ownership to anyone
+* @param anyAddress - address to whom ownership has to be transferred
+* @param propertyId - land ID
+*
+* Emits a (TransferOwnership) event.
+*/
+
+  function transferToAnyone(address anyAddress, uint256 propertyId) public {
+    require(
+      landMapping[propertyId].landVerified == true,
+      "Land is not Verified by the Land Inspector"
+    );
+    require(
+      landMapping[propertyId].landOwner == msg.sender,
+      "Only Land Owner can Transfer the Land"
+    );
+    landMapping[propertyId].landOwner = anyAddress;
+
+    emit TransferOwnership(
+      "Land is successfully transferred",
+      msg.sender,
+      block.timestamp
+    );
+  }
+}
