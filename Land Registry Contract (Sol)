@@ -81,6 +81,7 @@ contract Land {
 
   event TransferOwnership(string message, address transferredBy, uint256 time);
 
+
   modifier onlyLandInspector() {
     require(
       msg.sender == landInspectorAddress,
